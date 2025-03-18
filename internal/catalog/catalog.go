@@ -5,6 +5,7 @@ import (
 	"github.com/RokibulHasan7/marketplace-prototype/pkg/database"
 	"github.com/RokibulHasan7/marketplace-prototype/pkg/models"
 	"net/http"
+	"strconv"
 )
 
 // AddApplication API (only for publishers)
@@ -42,7 +43,52 @@ func AddApplication(w http.ResponseWriter, r *http.Request) {
 }
 
 func ListApplications(w http.ResponseWriter, r *http.Request) {
-	var apps []models.Application
-	database.DB.Preload("Publisher").Find(&apps)
-	json.NewEncoder(w).Encode(apps)
+	// Get query parameters
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	publisherName := r.URL.Query().Get("publisher")       // Filter by publisher name
+	deploymentType := r.URL.Query().Get("deploymentType") // Filter by deployment type (k8s/vm)
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	// Query builder
+	query := database.DB.Preload("Publisher").Model(&models.Application{})
+
+	// Apply filters
+	if publisherName != "" {
+		query = query.Joins("JOIN users ON users.id = applications.publisher_id").
+			Where("users.name = ?", publisherName)
+	}
+	if deploymentType != "" {
+		query = query.Where("type = ?", deploymentType)
+	}
+
+	var total int64
+	query.Count(&total)
+
+	var applications []models.Application
+	result := query.Limit(limit).Offset(offset).Find(&applications)
+	if result.Error != nil {
+		http.Error(w, "Failed to fetch applications", http.StatusInternalServerError)
+		return
+	}
+
+	// Prepare response
+	response := map[string]interface{}{
+		"data":        applications,
+		"page":        page,
+		"limit":       limit,
+		"total_items": total,
+		"total_pages": (total + int64(limit) - 1) / int64(limit),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
