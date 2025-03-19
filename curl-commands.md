@@ -1,0 +1,42 @@
+```
+curl -X POST http://localhost:3000/api/users \
+-H "Content-Type: application/json" \
+-d '{"name": "John Doe"}'
+```
+
+```
+curl -X GET http://localhost:3000/api/users \
+-H "Content-Type: application/json" 
+```
+
+```
+curl -X POST http://localhost:3000/api/apps \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Kubernetes App",
+    "description": "This is a Kubernetes-based application",
+    "publisher_id": 1,
+    "deployment" :{
+    "type": "k8s",
+    "repoURL": "https://charts.bitnami.com/bitnami",
+    "chartName": "nginx",
+    "image": "",
+    "cpu": "",
+    "memory": ""
+    }
+  }'
+```
+
+```
+curl -X DELETE http://localhost:3000/api/apps/1 \
+  -H "Content-Type: application/json"
+```
+
+```
+curl -X POST http://localhost:3000/api/deployments \
+  -H "Content-Type: application/json" \
+  -d '{
+    "consumer_id": 1,
+    "application_id": 1
+  }'
+```

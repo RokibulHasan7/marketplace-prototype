@@ -26,9 +26,9 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// List Users
+// ListUsers API
 func ListUsers(w http.ResponseWriter, r *http.Request) {
 	var users []models.User
-	database.DB.Preload("User").Find(&users)
+	database.DB.Find(&users)
 	json.NewEncoder(w).Encode(users)
 }

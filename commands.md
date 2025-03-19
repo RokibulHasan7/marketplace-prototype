@@ -1,0 +1,1 @@
+- clear the entire stream: `redis-cli XTRIM install_queue MAXLEN 0`

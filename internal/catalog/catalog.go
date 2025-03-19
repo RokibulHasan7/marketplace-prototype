@@ -4,18 +4,30 @@ import (
 	"encoding/json"
 	"github.com/RokibulHasan7/marketplace-prototype/pkg/database"
 	"github.com/RokibulHasan7/marketplace-prototype/pkg/models"
+	"github.com/go-chi/chi/v5"
 	"net/http"
 	"strconv"
 )
 
+type deploymentSpec struct {
+	Type      string `json:"type"`
+	RepoURL   string `json:"repoURL"`
+	ChartName string `json:"chartName"`
+	Image     string `json:"image"`
+	CPU       string `json:"cpu,omitempty"`
+	Memory    string `json:"memory,omitempty"`
+}
+
 // AddApplication API (only for publishers)
 func AddApplication(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Name        string                `json:"name"`
-		Description string                `json:"description"`
-		PublisherID uint                  `json:"publisher_id"`
-		Deployment  models.DeploymentSpec `json:"deployment"`
+		Name        string                 `json:"name"`
+		Description string                 `json:"description"`
+		PublisherID uint                   `json:"publisher_id"`
+		Deployment  deploymentSpec         `json:",inline"`
+		Inputs      map[string]interface{} `json:"inputs"`
 	}
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
@@ -27,11 +39,20 @@ func AddApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if the publisher exists
+	var publisher models.User
+	if err := database.DB.First(&publisher, req.PublisherID).Error; err != nil {
+		http.Error(w, "Publisher not found", http.StatusBadRequest)
+		return
+	}
+
+	// Create the application
 	app := models.Application{
 		Name:        req.Name,
 		Description: req.Description,
 		PublisherID: req.PublisherID,
-		Deployment:  req.Deployment,
+		Deployment:  models.DeploymentSpec(req.Deployment),
+		Inputs:      req.Inputs, // Set the dynamic inputs
 	}
 
 	if err := database.DB.Create(&app).Error; err != nil {
@@ -39,6 +60,7 @@ func AddApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(app)
 }
 
@@ -91,4 +113,70 @@ func ListApplications(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func GetApplication(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id") // Get ID from URL
+
+	var app models.Application
+	if err := database.DB.Preload("Publisher").First(&app, id).Error; err != nil {
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+
+	json.NewEncoder(w).Encode(app)
+}
+
+func UpdateApplication(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	var app models.Application
+	if err := database.DB.First(&app, id).Error; err != nil {
+		http.Error(w, "Application not found", http.StatusNotFound)
+		return
+	}
+
+	var req struct {
+		Name        string                 `json:"name"`
+		Description string                 `json:"description"`
+		Deployment  models.DeploymentSpec  `json:"deployment"`
+		Inputs      map[string]interface{} `json:"inputs"` // Input fields as JSON
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// Update application details
+	app.Name = req.Name
+	app.Description = req.Description
+	app.Deployment = req.Deployment
+	app.Inputs = req.Inputs // Update the inputs
+
+	if err := database.DB.Save(&app).Error; err != nil {
+		http.Error(w, "Failed to update application", http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(app)
+}
+
+func DeleteApplication(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	// Check if the application has active deployments
+	var count int64
+	database.DB.Model(&models.Deployment{}).Where("application_id = ?", id).Count(&count)
+	if count > 0 {
+		http.Error(w, "Cannot delete: Active deployments exist", http.StatusConflict)
+		return
+	}
+
+	// Delete application
+	if err := database.DB.Delete(&models.Application{}, id).Error; err != nil {
+		http.Error(w, "Failed to delete application", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

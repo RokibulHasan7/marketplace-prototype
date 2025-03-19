@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 type User struct {
 	ID   uint   `gorm:"primaryKey"`
 	Name string `gorm:"unique"`
@@ -10,8 +12,11 @@ type Application struct {
 	Name        string `gorm:"unique"`
 	Description string
 	PublisherID uint
+	HourlyRate  float64        // 💰 Cost per hour
 	Deployment  DeploymentSpec `gorm:"embedded"` // Embedded struct for deployment details
 	Publisher   User           `gorm:"foreignKey:PublisherID"`
+
+	Inputs map[string]interface{} `gorm:"type:jsonb"` // Store input fields as JSON
 }
 
 // DeploymentSpec stores deployment-related data
@@ -39,4 +44,17 @@ type Deployment struct {
 
 	Consumer    User        `gorm:"foreignKey:ConsumerID"`
 	Application Application `gorm:"foreignKey:ApplicationID"`
+}
+
+type BillingRecord struct {
+	ID            string     `gorm:"primaryKey"`
+	ConsumerID    string     `gorm:"index"`
+	DeploymentID  string     `gorm:"index"`
+	ApplicationID uint       `gorm:"index"`
+	HourlyRate    float64    // 💰 Cost per hour
+	Amount        float64    // 🔄 Total amount (updated hourly)
+	StartTime     time.Time  // 📅 Start timestamp
+	EndTime       *time.Time `gorm:"default:null"` // 📅 End timestamp (null if running)
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }

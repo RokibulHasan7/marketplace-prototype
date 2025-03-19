@@ -16,12 +16,18 @@ func RegisterRoutes(r *chi.Mux) {
 
 	// Application catalog routes
 	r.Route("/api/apps", func(r chi.Router) {
-		r.Post("/", catalog.AddApplication)  // Add a new application
-		r.Get("/", catalog.ListApplications) // List all applications
+		r.Post("/", catalog.AddApplication)          // Add a new application
+		r.Get("/", catalog.ListApplications)         // List all applications
+		r.Get("/{id}", catalog.GetApplication)       // Get app details
+		r.Put("/{id}", catalog.UpdateApplication)    // Update app
+		r.Delete("/{id}", catalog.DeleteApplication) // Delete app
 	})
 
 	// Deployment routes
 	r.Route("/api/deployments", func(r chi.Router) {
 		r.Post("/", deployments.DeployApplication) // Deploy an application
+
+		r.Get("/{id}", deployments.GetDeployment)       // Get deployment details
+		r.Delete("/{id}", deployments.DeleteDeployment) // Remove deployment
 	})
 }
