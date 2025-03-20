@@ -1,13 +1,19 @@
 ```
-curl -X POST http://localhost:3000/api/users \
+curl -X POST http://localhost:3000/api/users/new \
 -H "Content-Type: application/json" \
 -d '{"name": "John Doe"}'
 ```
 
 ```
-curl -X POST http://localhost:3000/api/users \
+curl -X POST http://localhost:3000/api/users/new \
 -H "Content-Type: application/json" \
 -d '{"name": "Rakib"}'
+```
+
+```
+curl -X POST http://localhost:3000/api/user/project/new \
+-H "Content-Type: application/json" \
+-d '{"name": "p1", "user_id": 2}'
 ```
 
 ```
@@ -16,7 +22,7 @@ curl -X GET http://localhost:3000/api/users \
 ```
 
 ```
-curl -X POST http://localhost:3000/api/apps \
+curl -X POST http://localhost:3000/api/apps/new \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Kubernetes App",
@@ -35,11 +41,12 @@ curl -X POST http://localhost:3000/api/apps \
 ```
 
 ```
-curl -X POST http://localhost:3000/api/deployments \
+curl -X POST http://localhost:3000/api/deployments/install \
   -H "Content-Type: application/json" \
   -d '{
     "consumer_id": 2,
-    "application_id": 1
+    "application_id": 1,
+    "project_id": 1
   }'
 ```
 
@@ -55,5 +62,10 @@ curl -X GET http://localhost:3000/api/apps/1 \
 
 ```
 curl -X GET http://localhost:3000/api/apps \
+  -H "Content-Type: application/json"
+```
+
+```
+curl -X DELETE http://localhost:3000/api/deployments/1 \
   -H "Content-Type: application/json"
 ```

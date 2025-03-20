@@ -9,7 +9,7 @@ import (
 )
 
 func StartBillingUpdater() {
-	ticker := time.NewTicker(1 * time.Hour)
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	for {
@@ -29,8 +29,11 @@ func updateBillingRecords() {
 	}
 
 	for _, record := range records {
-		elapsedHours := time.Since(record.StartTime).Hours()
-		newAmount := elapsedHours * record.HourlyRate
+		elapsedDuration := time.Since(record.StartTime)
+		elapsedHours := elapsedDuration.Hours()
+		elapsedMinutes := elapsedDuration.Minutes()
+
+		newAmount := (elapsedMinutes / 60) * record.HourlyRate // Calculate cost based on total minutes
 
 		// Update Billing Record
 		if err := database.DB.Model(&record).Updates(models.BillingRecord{
@@ -39,7 +42,8 @@ func updateBillingRecords() {
 		}).Error; err != nil {
 			log.Println("❌ Failed to update billing:", err)
 		} else {
-			fmt.Printf("💰 Billing updated: %s → $%.2f\n", record.DeploymentID, newAmount)
+			fmt.Printf("💰 Billing updated: %s → $%.2f (%.0f hours, %.0f mins)\n",
+				record.DeploymentID, newAmount, elapsedHours, elapsedMinutes)
 		}
 	}
 }

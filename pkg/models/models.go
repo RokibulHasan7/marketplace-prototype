@@ -7,6 +7,16 @@ type User struct {
 	Name string `gorm:"unique"`
 }
 
+// Project represents a group of deployments under a user
+type Project struct {
+	ID     uint   `gorm:"primaryKey"`
+	Name   string `gorm:"unique"`
+	UserID uint   // Owner of the project
+
+	User        User         `gorm:"foreignKey:UserID"`
+	Deployments []Deployment `gorm:"foreignKey:ProjectID"`
+}
+
 type Application struct {
 	ID          uint   `gorm:"primaryKey"`
 	Name        string `gorm:"unique"`
@@ -33,6 +43,7 @@ type Deployment struct {
 	ID             uint `gorm:"primaryKey"`
 	ConsumerID     uint
 	ApplicationID  uint
+	ProjectID      uint   // The project under which this deployment is managed
 	DeploymentType string `gorm:"type:varchar(10)"` // "k8s" or "vm"
 
 	// Kubernetes-specific
@@ -42,8 +53,12 @@ type Deployment struct {
 	VMName string `gorm:"default:null"` // VM instance name (if VM-based)
 	VMIP   string `gorm:"default:null"` // IP of the created VM
 
+	// Deployment status
+	Status string `gorm:"type:varchar(20);default:'pending'"` // Possible values: "pending", "installing", "installed", "failed"
+
 	Consumer    User        `gorm:"foreignKey:ConsumerID"`
 	Application Application `gorm:"foreignKey:ApplicationID"`
+	Project     Project     `gorm:"foreignKey:ProjectID"`
 }
 
 type BillingRecord struct {

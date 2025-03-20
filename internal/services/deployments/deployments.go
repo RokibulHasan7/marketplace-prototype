@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/RokibulHasan7/marketplace-prototype/internal/queue"
+	"github.com/RokibulHasan7/marketplace-prototype/internal/services/deployments/deprovisioner"
+	"github.com/RokibulHasan7/marketplace-prototype/internal/services/deployments/provisioner"
 	"github.com/RokibulHasan7/marketplace-prototype/pkg/database"
 	"github.com/RokibulHasan7/marketplace-prototype/pkg/models"
 	"github.com/go-chi/chi/v5"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -16,10 +19,18 @@ func DeployApplication(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		ConsumerID    uint `json:"consumer_id"`
 		ApplicationID uint `json:"application_id"`
+		ProjectID     uint `json:"project_id"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Validate Project Exists
+	var project models.Project
+	if err := database.DB.First(&project, req.ProjectID).Error; err != nil {
+		http.Error(w, "Project not found", http.StatusNotFound)
 		return
 	}
 
@@ -41,7 +52,9 @@ func DeployApplication(w http.ResponseWriter, r *http.Request) {
 	deployment := models.Deployment{
 		ConsumerID:     req.ConsumerID,
 		ApplicationID:  req.ApplicationID,
+		ProjectID:      req.ProjectID,
 		DeploymentType: app.Deployment.Type,
+		Status:         "pending", // Initial status
 	}
 
 	// Store Deployment Record (Initial Status)
@@ -51,7 +64,7 @@ func DeployApplication(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Push to Redis Queue for Asynchronous Processing
-	err := queue.PushToQueue(queue.InstallRequest{
+	err := queue.PushToInstallerQueue(provisioner.InstallRequest{
 		DeploymentID:  fmt.Sprintf("%d", deployment.ID),
 		ConsumerID:    fmt.Sprintf("%d", req.ConsumerID),
 		ApplicationID: fmt.Sprintf("%d", req.ApplicationID),
@@ -99,7 +112,7 @@ func DeleteDeployment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Queue a delete message
-	queue.PushToDeleteQueue(queue.DeleteRequest{
+	queue.PushToUninstallerQueue(deprovisioner.UninstallRequest{
 		DeploymentID:   id,
 		DeploymentType: deployment.DeploymentType,
 		ClusterName:    deployment.ClusterName,
@@ -126,11 +139,56 @@ func DeleteDeployment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Delete deployment from DB
-	if err := database.DB.Delete(&deployment).Error; err != nil {
-		http.Error(w, "Failed to delete deployment", http.StatusInternalServerError)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ListUserDeployments API to list deployments of a user
+func ListUserDeployments(w http.ResponseWriter, r *http.Request) {
+	// Get the user ID from URL parameter
+	userIDStr := chi.URLParam(r, "id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	// Get the 'status' query parameter (optional)
+	status := r.URL.Query().Get("status")
+
+	// Define the allowed statuses for validation
+	validStatuses := []string{"installing", "installed", "failed", "pending"}
+	isValidStatus := false
+	for _, s := range validStatuses {
+		if status == s {
+			isValidStatus = true
+			break
+		}
+	}
+
+	// If status is invalid, return a Bad Request response
+	if status != "" && !isValidStatus {
+		http.Error(w, "Invalid status. Valid statuses are: installing, installed, failed, pending", http.StatusBadRequest)
+		return
+	}
+
+	// Create a slice to hold the deployments
+	var deployments []models.Deployment
+
+	// Query deployments where the ConsumerID matches the userID
+	query := database.DB.Where("consumer_id = ?", userID)
+
+	// If a status is provided, filter by status
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	// Execute the query to fetch the deployments
+	if err := query.Find(&deployments).Error; err != nil {
+		http.Error(w, "Error fetching user deployments", http.StatusInternalServerError)
+		return
+	}
+
+	// Return the deployments as JSON
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(deployments)
 }

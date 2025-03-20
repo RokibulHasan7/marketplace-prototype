@@ -52,6 +52,7 @@ func AddApplication(w http.ResponseWriter, r *http.Request) {
 		Name:        req.Name,
 		Description: req.Description,
 		PublisherID: req.PublisherID,
+		HourlyRate:  req.HourlyRate,
 		Deployment:  models.DeploymentSpec(req.Deployment),
 		Inputs:      req.Inputs, // Set the dynamic inputs
 	}
