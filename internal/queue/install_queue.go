@@ -16,7 +16,7 @@ var redisClient = redis.NewClient(&redis.Options{
 	Addr: "localhost:6370",
 })
 
-const CreateQueue = "install_queue"
+const InstallQueue = "install_queue"
 
 // InstallRequest represents a message in the queue
 type InstallRequest struct {
@@ -42,7 +42,7 @@ func PushToQueue(req InstallRequest) error {
 	}
 
 	_, err = redisClient.XAdd(ctx, &redis.XAddArgs{
-		Stream: CreateQueue,
+		Stream: InstallQueue,
 		Values: map[string]interface{}{
 			"deployment_id":  req.DeploymentID,
 			"consumer_id":    req.ConsumerID,
@@ -64,12 +64,12 @@ func PushToQueue(req InstallRequest) error {
 // StartConsumer processes deployment messages
 func StartCreateConsumer() {
 	ctx := context.Background()
-	log.Println("🚀 Redis Queue Consumer Started...")
+	log.Println("🚀 Redis Create Queue Consumer Started...")
 
 	for {
 		// Read new messages from the queue
 		messages, err := redisClient.XRead(ctx, &redis.XReadArgs{
-			Streams: []string{CreateQueue, "0"},
+			Streams: []string{InstallQueue, "0"},
 			Count:   1,
 			Block:   0, // Blocks indefinitely
 		}).Result()
@@ -119,7 +119,7 @@ func StartCreateConsumer() {
 				fmt.Printf("✅ Deployment %s completed for %s\n", installReq.DeploymentID, installReq.Application)
 
 				// Remove Processed Message from Queue
-				_, err = redisClient.XDel(ctx, CreateQueue, message.ID).Result()
+				_, err = redisClient.XDel(ctx, InstallQueue, message.ID).Result()
 				if err != nil {
 					log.Println("❌ Failed to acknowledge message:", err)
 				}

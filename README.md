@@ -7,3 +7,9 @@ docker run --name marketplace-redis -p 6370:6379 -d redis
 
 go run main.go
 ```
+or
+```
+export DATABASE_URL="postgres://admin:secret@localhost:5433/marketplace"
+
+make run
+```

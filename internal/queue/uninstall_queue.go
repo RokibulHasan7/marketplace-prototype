@@ -9,7 +9,7 @@ import (
 )
 
 // Stream Name
-const DeleteQueue = "delete_queue"
+const UninstallQueue = "delete_queue"
 
 // DeleteRequest represents a deletion message in the queue
 type DeleteRequest struct {
@@ -24,7 +24,7 @@ func PushToDeleteQueue(req DeleteRequest) error {
 	ctx := context.Background()
 
 	_, err := redisClient.XAdd(ctx, &redis.XAddArgs{
-		Stream: DeleteQueue,
+		Stream: UninstallQueue,
 		Values: map[string]interface{}{
 			"deployment_id":   req.DeploymentID,
 			"deployment_type": req.DeploymentType,
@@ -47,7 +47,7 @@ func StartDeleteConsumer() {
 	for {
 		// Read messages from the delete queue
 		messages, err := redisClient.XRead(ctx, &redis.XReadArgs{
-			Streams: []string{DeleteQueue, "0"},
+			Streams: []string{UninstallQueue, "0"},
 			Count:   1,
 			Block:   0, // Blocks indefinitely
 		}).Result()
@@ -73,7 +73,7 @@ func StartDeleteConsumer() {
 				deleteResource(deleteReq)
 
 				// Acknowledge message deletion
-				_, err := redisClient.XDel(ctx, DeleteQueue, message.ID).Result()
+				_, err := redisClient.XDel(ctx, UninstallQueue, message.ID).Result()
 				if err != nil {
 					log.Println("❌ Failed to acknowledge delete message:", err)
 				}

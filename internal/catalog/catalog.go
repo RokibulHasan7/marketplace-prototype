@@ -24,6 +24,7 @@ func AddApplication(w http.ResponseWriter, r *http.Request) {
 		Name        string                 `json:"name"`
 		Description string                 `json:"description"`
 		PublisherID uint                   `json:"publisher_id"`
+		HourlyRate  float64                `json:"hourly_rate"`
 		Deployment  deploymentSpec         `json:",inline"`
 		Inputs      map[string]interface{} `json:"inputs"`
 	}
